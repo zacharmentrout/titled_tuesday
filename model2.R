@@ -63,34 +63,7 @@ games <- games_init
 games$tournament_date <- gsub('\\.', '-', games$Date)
 games$tournament_idx <- match(games$tournament_date, sort(unique(games$tournament_date)))
 
-games <- games[games$tournament_idx <= 8,]
-
-# Generate player ids and first elos (for priors)
-games_white <- games[,c('White', 'Date', 'Round', 'WhiteElo', 'Result')]
-games_black <- games[,c('Black', 'Date', 'Round', 'BlackElo', 'Result')]
-
-names(games_white) <- c('player', 'Date', 'Round', 'Elo', 'Result')
-names(games_black) <- c('player', 'Date', 'Round', 'Elo', 'Result')
-games_white$player_color <- 'White'
-games_black$player_color <- 'Black'
-
-games_long <- rbind(
-  games_white,
-  games_black
-)
-
-games_long$id <- paste0(games_long$Date,'-',stringr::str_pad(games_long$Round, 2, side = 'left',pad = '0'))
-
-games_long$rnk_game <- ave(seq_len(nrow(games_long)), games_long$player, FUN = function(z) order(games_long$id[z]))
-player_first_games <- games_long[games_long$rnk_game == 1,]
-player_first_games <- player_first_games[order(-player_first_games$Elo, player_first_games$player), ]
-player_first_games$player_id <- 1:nrow(player_first_games)
-
-games <- merge(games, player_first_games[,c('player', 'player_id', 'Elo')], by.x = 'White', by.y = 'player')
-games <- merge(games, player_first_games[,c('player', 'player_id', 'Elo')], by.x = 'Black', by.y = 'player', suffixes = c('_white', '_black'))
-
-names(games)[c(17, 19)] <- c('player_white_idx', 'player_black_idx')
-names(games)[c(18, 20)] <- c('player_white_first_elo', 'player_black_first_elo')
+games <- games[games$tournament_idx <= 16,]
 
 score_map_white <- c("1-0" = 1, "0-1" = 0, "1/2-1/2" = 0.5)
 score_map_black <- c("1-0" = 0, "0-1" = 1, "1/2-1/2" = 0.5)
@@ -100,7 +73,56 @@ games$white_score <- score_map_white[games$Result]
 games$black_score <- score_map_black[games$Result]
 games$outcome_ordinal <- score_map_ordinal[games$Result]
 
+# Generate player ids and first elos (for priors)
+games_white <- games[,c('White', 'Date', 'Round', 'WhiteElo', 'Result', 'tournament_idx', 'outcome_ordinal', 'white_score', 'black_score')]
+games_black <- games[,c('Black', 'Date', 'Round', 'BlackElo', 'Result', 'tournament_idx', 'outcome_ordinal', 'white_score', 'black_score')]
 
+names(games_white) <- c('player', 'Date', 'Round', 'Elo', 'Result',  'tournament_idx', 'outcome_ordinal', 'white_score', 'black_score')
+names(games_black) <- c('player', 'Date', 'Round', 'Elo', 'Result',  'tournament_idx', 'outcome_ordinal', 'white_score', 'black_score')
+games_white$player_color <- 'White'
+games_black$player_color <- 'Black'
+games_white$player_score_this_game <- games_white$white_score
+games_black$player_score_this_game <- games_black$black_score
+
+games_long <- rbind(
+  games_white,
+  games_black
+)
+
+head(games_long)
+
+games_long$id <- paste0(games_long$Date,'-',stringr::str_pad(games_long$Round, 2, side = 'left',pad = '0'))
+
+games_long$rnk_game <- ave(seq_len(nrow(games_long)), games_long$player, FUN = function(z) order(games_long$id[z]))
+player_first_games <- games_long[games_long$rnk_game == 1,]
+player_first_games <- player_first_games[order(-player_first_games$Elo, player_first_games$player), ]
+player_first_games$player_id <- 1:nrow(player_first_games)
+
+games_long <- merge(games_long, player_first_games[,c('player', 'player_id')], by='player', all.x=T, all.y=F)
+# Ensure the data is sorted by player_id, tournament_idx, and id
+games_long <- games_long[order(games_long$player_id, 
+                               games_long$tournament_idx, 
+                               games_long$id), ]
+games_long$player_total_pre_game_tournament_score <- with(
+  games_long,
+  ave(player_score_this_game, player_id, tournament_idx, 
+      FUN = function(x) c(0, cumsum(x)[-length(x)]))
+)
+
+games_long$player_total_post_game_tournament_score <- games_long$player_total_pre_game_tournament_score + games_long$player_score_this_game
+
+games <- merge(games, player_first_games[,c('player', 'player_id', 'Elo')], by.x = 'White', by.y = 'player')
+games <- merge(games, player_first_games[,c('player', 'player_id', 'Elo')], by.x = 'Black', by.y = 'player', suffixes = c('_white', '_black'))
+
+names(games)[c(20, 22)] <- c('player_white_idx', 'player_black_idx')
+names(games)[c(21, 23)] <- c('player_white_first_elo', 'player_black_first_elo')
+
+
+
+
+
+
+player_first_games$count_games <- table(games_long$player_id)
 
 # Graph stuff
 adj <- util$build_adj_matrix(nrow(player_first_games), nrow(games), games$player_white_idx, games$player_black_idx)
@@ -113,7 +135,7 @@ unique_tournaments <- unique(games[,c('tournament_idx', 'tournament_date', 'Even
 unique_tournaments[order(unique_tournaments$tournament_idx),]
 
 player1_elo <- player_first_games$Elo[player_first_games$player_id==1]
-delta_elo <- (player_first_games$Elo - player1_elo) / 200
+delta_elo <- (player_first_games$Elo - player1_elo) / 173
 
 
 games_prior_close_elo <- games_prior[abs(games_prior$WhiteElo - games_prior$BlackElo) < 10 , ]
@@ -134,10 +156,13 @@ rho <- c(0.44, 0.12, 0.44)
 tau <- 0.05
 p_sample <- util$rdirichlet(n, rho, tau)
 cp_sample <- t(apply(p_sample, 1, function(x) {util$ordinal_probs_to_cutpoints(x)}))
-elo_diff <-  500
-shift <- elo_diff / 200
+elo_diff <-  0
+shift <- elo_diff / 173-0.75
 outcomes_sample <- sapply(1:n, function(x) { util$rordered_logistic(1, cp_sample[x,], shift) })
+scores_sample <- c(0, 0.5, 1)[outcomes_sample]
 table(outcomes_sample)/length(outcomes_sample)
+mean(scores_sample)
+util$elo1(elo_diff)
 
 hist(p_sample[,2])
 util$my_q(p_sample[,2])
@@ -160,7 +185,7 @@ mod_data <- list(
 )
 
 
-mod_prior <- stan(file=file.path("model1_prior.stan"), 
+mod_prior <- stan(file=file.path("model2_prior.stan"), 
                            data=mod_data, seed=78100028, algorithm="Fixed_param",
                            iter=10, chains=1, warmup=0
 )
@@ -182,7 +207,7 @@ util$plot_hist_quantiles(samples = mod_samples_prior, bin_min = 0.5, bin_max = 3
 # Fit model
 #################################
 
-mod <- stan(file=file.path("model1.stan"), 
+mod <- stan(file=file.path("model2.stan"), 
               data=mod_data, warmup=500, iter=1000,
             control = list(adapt_delta = 0.8)
 )
@@ -196,15 +221,12 @@ extract_mod <- extract(mod)
 # The diagnostics for all parameter expectands are clear.
 mod_samples <- util$extract_expectand_vals(mod)
 names <- c(
-  paste0('gamma_white_free[', 1:(nrow(player_first_games)-1),']'),
-  paste0('gamma_black_free[', 1:(nrow(player_first_games)-1),']'),
+  paste0('gamma_free[', 1:(nrow(player_first_games)-1),']'),
   paste0('cut_points[',1:2,']')
 )
   
-
 base_samples <- util$filter_expectands(mod_samples, names)
 util$check_all_expectand_diagnostics(base_samples)
-
 
 # Posterior retrodictive check
 par(mfrow=c(1, 1))
@@ -216,7 +238,17 @@ util$plot_hist_quantiles(samples = mod_samples, bin_min = 0.5, bin_max = 3.5, bi
 
 # Cut points
 util$plot_cut_point_overlay(mod_samples, 'cut_points[',
-                       flim=c(-1, 1), fname='Interior Cut Points', ylim=c(0,10))
+                       flim=c(-1, 1), fname='Interior Cut Points', ylim=c(0,20))
+
+
+util$plot_cut_point_post_vs_prior_overlay(mod_samples, prefix = 'cut_points[', prefix_prior = 'cut_points_prior[',
+                            flim=c(-1.5, 1.5), fname='Interior Cut Points', ylim=c(0,15))
+
+
+# Posterior ordinal probs vs. prior
+util$plot_ordinal_post_vs_prior_overlay(mod_samples, prefix = 'ordinal_probs[', prefix_prior = 'ordinal_probs_prior[',
+                                          flim=c(0,1), fname='Ordinal Probs', ylim=c(0,50))
+
 
 
 
@@ -238,47 +270,41 @@ for (c in 1:8) {
 }
 
 
+# Rounds
+for (c in 1:11) {
+  if(c %% 2 == 1) {
+    par(mfrow=c(1,2), mar=c(5, 5, 1, 1))
+  }
+  
+  names <- sapply(which(games$Round == c),
+                  function(n) paste0('y_pred[', n, ']'))
+  
+  
+  filtered_samples <- util$filter_expectands(mod_samples, names)
+  outcomes <- games$outcome_ordinal[games$Round == c]
+  
+  util$plot_hist_quantiles(filtered_samples, 'y_pred',
+                           0.5, 3.5, 1,
+                           baseline_values=outcomes,
+                           xlab="Outcome",
+                           main=paste('Round', c))
+}
+
+
 # Player skill
-par(mfrow=c(2, 1), mar=c(5, 5, 1, 1))
+par(mfrow=c(1, 1), mar=c(5, 5, 1, 1))
 
 names <- sapply(1:mod_data$N_players,
-                function(i) paste0('gamma_white[', i, ']'))
-util$plot_disc_pushforward_quantiles(mod_samples, names,
+                function(i) paste0('gamma[', i, ']'))
+util$plot_disc_pushforward_quantiles(mod_samples,
+                                     names[1:100],
                                      xlab="Player",
-                                     ylab="Relative Skill with White")
-
-names <- sapply(1:mod_data$N_players,
-                function(i) paste0('gamma_black[', i, ']'))
-util$plot_disc_pushforward_quantiles(mod_samples, names,
-                                     xlab="Player",
-                                     ylab="Relative Skill with Black")
-
-# Player relative black-white skill
-par(mfrow=c(1,1),mar=c(5, 5, 1, 1))
-names <- sapply(1:mod_data$N_players,
-                function(i) paste0('relative_skill_white_black[', i, ']'))
-util$plot_disc_pushforward_quantiles(mod_samples, names,
-                                     xlab="Player",
-                                     ylab="Relative Skill White vs. Black")
-abline(h=0,lty='dashed')
-abline(h=2.48)
-abline(h=-1.93)
-
-# Rank them in terms of biggest gap in skill playing with white vs. black
-par(mfrow=c(1,1),mar=c(5, 5, 1, 1))
-names <- sapply(1:mod_data$N_players,
-                function(i) paste0('relative_skill_white_black[', i, ']'))
-
-expected_relative_skill_white_black <- sapply(names,
-                                             function(i) mean(mod_samples[[i]]))
-
-which.max(expected_relative_skill_white_black)
-which.min(expected_relative_skill_white_black)
+                                     ylab="Relative Skill")
 
 
 # A few players
 par(mfrow=c(3, 2), mar=c(5, 5, 1, 1))
-for (c in c(2, 104, 1160)) {
+for (c in c(2, 500, 2263)) {
   names_white <- sapply(which(games$player_white_idx == c),
                         function(n) paste0('y_pred[', n, ']'))
   
@@ -305,31 +331,17 @@ for (c in c(2, 104, 1160)) {
 }
 
 # prior and posterior variance
-names <- paste0('gamma_white[',1:nrow(player_first_games),']')
-prior_means_gamma_white <- delta_elo
-posterior_means_gamma_white <- sapply(names, function(i) { mean(mod_samples[[i]]) })
-posterior_sds_gamma_white <- sapply(names, function(i) {sd(mod_samples[[i]])})
-contraction_white <- 1 - posterior_sds_gamma_white / (2/2.32)
-mean_gamma_shift_white <- (posterior_means_gamma_white - prior_means_gamma_white) / posterior_sds_gamma_white
+names <- paste0('gamma[',1:nrow(player_first_games),']')
+prior_means_gamma <- delta_elo
+posterior_means_gamma <- sapply(names, function(i) { mean(mod_samples[[i]]) })
+posterior_sds_gamma <- sapply(names, function(i) {sd(mod_samples[[i]])})
+contraction <- 1 - posterior_sds_gamma / (1/2.32)
+mean_gamma_shift <- (posterior_means_gamma - prior_means_gamma) / posterior_sds_gamma
 
 par(mfrow=c(1,1))
-plot(contraction_white, mean_gamma_shift_white, col=c("#8F272720"), lwd=2, pch=16, cex=0.8, main="Skill with White - Contraction vs. Mean Shift",
+plot(contraction, mean_gamma_shift, col=c("#8F272720"), lwd=2, pch=16, cex=0.8, main="Skill - Contraction vs. Mean Shift",
      xlim=c(0, 1), xlab="Posterior Contraction", ylim=c(-5, 5), ylab="Posterior Mean Shift")
 
-
-names <- paste0('gamma_black[',1:nrow(player_first_games),']')
-prior_means_gamma_black <- delta_elo
-posterior_means_gamma_black <- sapply(names, function(i) { mean(mod_samples[[i]]) })
-posterior_sds_gamma_black <- sapply(names, function(i) {sd(mod_samples[[i]])})
-contraction_black <- 1 - posterior_sds_gamma_black / (2/2.32)
-mean_gamma_shift_black <- (posterior_means_gamma_black - prior_means_gamma_black) / posterior_sds_gamma_black
-
-par(mfrow=c(1,1))
-plot(contraction_black, mean_gamma_shift_black, col=c("#8F272720"), lwd=2, pch=16, cex=0.8, main="Skill with Black - Contraction vs. Mean Shift",
-     xlim=c(0, 1), xlab="Posterior Contraction", ylim=c(-5, 5), ylab="Posterior Mean Shift")
-
-
-
-
+which(contraction < 0.3 & mean_gamma_shift > 4)
 
 

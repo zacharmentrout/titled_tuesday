@@ -28,12 +28,12 @@ build_adj_matrix <- function(N_items, N_comparisons, idx1, idx2) {
 }
 
 elo1 <- function(x) {
-  1 / (1 + 10^(x/400))
+  1 / (1 + 10^(-x/400))
 }
 
 # test function 
 elo2 <- function(x) {
-  1 / (1+ exp(x/173.7178))
+  1 / (1+ exp(-x/173.7178))
 }
 
 
@@ -113,4 +113,93 @@ plot_cut_point_overlay <- function(expectand_vals_list, prefix,
                                   border="#DDDDDDDD",
                                   add=TRUE)
 }
+
+
+plot_cut_point_post_vs_prior_overlay <- function(expectand_vals_list, prefix, prefix_prior,
+                                   flim, fname, ylim, main=NULL) {
+  # posterior
+  name <- paste0(prefix, 1, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim, display_name=fname,
+                                  col=util$c_dark, border="#DDDDDDDD",
+                                  ylim=ylim, main=main)
+  
+  name <- paste0(prefix, 2, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim,
+                                  col=util$c_mid_highlight,
+                                  border="#DDDDDDDD",
+                                  add=TRUE)
+  
+  # prior
+  name <- paste0(prefix_prior, 1, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim, display_name=fname,
+                                  col=util$c_dark_teal, border="#DDDDDDDD",
+                                  ylim=ylim,
+                                  add=TRUE)
+  
+  name <- paste0(prefix_prior, 2, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim,
+                                  col=util$c_mid_teal,
+                                  border="#DDDDDDDD",
+                                  add=TRUE)  
+  
+}
+
+plot_ordinal_post_vs_prior_overlay <- function(expectand_vals_list, prefix, prefix_prior,
+                                                 flim, fname, ylim, main=NULL) {
+  # prior
+  name <- paste0(prefix_prior, 1, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim, display_name=fname,
+                                  col=util$c_dark_teal, border="#DDDDDDDD",
+                                  ylim=ylim,
+                                  main=main)
+  
+  name <- paste0(prefix_prior, 2, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim,
+                                  col=util$c_mid_teal,
+                                  border="#DDDDDDDD",
+                                  add=TRUE)  
+  
+  name <- paste0(prefix_prior, 3, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim,
+                                  col=util$c_light_teal,
+                                  border="#DDDDDDDD",
+                                  add=TRUE)
+  
+  # posterior
+  name <- paste0(prefix, 1, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim, display_name=fname,
+                                  col=util$c_dark, border="#DDDDDDDD",
+                                  ylim=ylim,
+                                  add=TRUE)
+  
+  name <- paste0(prefix, 2, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim,
+                                  col=util$c_mid_highlight,
+                                  border="#DDDDDDDD",
+                                  add=TRUE)
+  
+  name <- paste0(prefix, 3, ']')
+  util$plot_expectand_pushforward(expectand_vals_list[[name]],
+                                  45, flim=flim,
+                                  col=util$c_light,
+                                  border="#DDDDDDDD",
+                                  add=TRUE)
+  
+
+  
+}
+
+
+
+
+
 
