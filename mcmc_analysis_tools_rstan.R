@@ -155,7 +155,7 @@ check_all_hmc_diagnostics <- function(diagnostics,
       no_treedepth_warning <- FALSE
       local_message <- 
         paste0(local_message,
-               sprintf('  Chain %s: %s of %s transitions (%.2f%%)\n',
+               sprintf('  Chain %s: %s of %s transitions (%.3f%%) ',
                        c, n_tds, S, 100 * n_tds / S),
                        '           saturated the maximum treedepth ',
                sprintf('of %s.\n', max_treedepth))
@@ -181,9 +181,9 @@ check_all_hmc_diagnostics <- function(diagnostics,
       no_accept_warning <- FALSE
       local_message <- 
         paste0(local_message,
-               sprintf('  Chain %s: Average proxy acceptance ', c),
-               sprintf('statistic (%.3f)\n', ave_accept_proxy),
-                       '           is smaller than 90% of the target ',
+               sprintf('  Chain %s: Averge proxy acceptance ', c),
+               sprintf('statistic (%.3f) is\n', ave_accept_proxy),
+                       '           smaller than 90% of the target ',
                sprintf('(%.3f).\n', adapt_target))
     }
     
@@ -1573,8 +1573,7 @@ summarize_expectand_diagnostics <- function(expectand_vals_list,
     desc <-
       body <- paste0('The expectands %s triggered incremental ',
                      'hat{tau} warnings.\n\n')
-      paste0(sprintf(body,
-                     paste(failed_inc_tau_hat_names, collapse=", ")),
+      paste0(sprintf(body, paste(failed_tau_hat_names, collapse=", ")),
              'If the incremental empirical integrated autocorrelation ',
              'times are too large then the Markov chains have not ',
              'explored long enough for the autocorrelation estimates ',
@@ -2106,6 +2105,8 @@ eval_expectand_pushforwards <- function(expectand_vals_list,
   # Validate inputs
   validate_named_list_of_arrays(expectand_vals_list,
                                 'expectand_vals_list')
+  expectand_vals_env <- list2env(expectand_vals_list, hash = TRUE, parent = emptyenv())
+  
 
   if (!is.list(expectand_list)) {
     stop(paste0('Input variable `expectand_list` is not a list.'))
@@ -2186,7 +2187,10 @@ eval_expectand_pushforwards <- function(expectand_vals_list,
     alt_names <- lapply(nominal_arg_names,
                         function(name) alt_arg_names_array[[name]])
 
-  expectand_vals_env <- as.environment(expectand_vals_list)
+  # expectand_vals_env <- as.environment(expectand_vals_list)
+  expectand_vals_env <- list2env(expectand_vals_list, hash = TRUE, parent = emptyenv())
+  
+  
   access_val <- function(name) {
     expectand_vals_env[[name]][c, s]
   }

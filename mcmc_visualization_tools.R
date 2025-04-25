@@ -26,17 +26,17 @@ c_light_teal <- c("#6B8E8E")
 c_mid_teal <- c("#487575")
 c_dark_teal <- c("#1D4F4F")
 
-# util <- new.env()
-# if (file.exists('mcmc_analysis_tools_rstan.R')) {
-#   source('mcmc_analysis_tools_rstan.R', local=util)
-# } else if (file.exists('mcmc_analysis_tools_other.R')) {
-#   source('mcmc_analysis_tools_other.R', local=util)
-# } else {
-#   stop(print(paste0('mcmc_visualization_tools.R requires that ',
-#               'mcmc_analysis_tools_[rstan/other].R from ',
-#               'https://github.com/betanalpha/mcmc_diagnostics ',
-#               'is available.')))
-# }
+util <- new.env()
+if (file.exists('mcmc_analysis_tools_rstan.R')) {
+  source('mcmc_analysis_tools_rstan.R', local=util)
+} else if (file.exists('mcmc_analysis_tools_other.R')) {
+  source('mcmc_analysis_tools_other.R', local=util)
+} else {
+  stop(print0('mcmc_visualization_tools.R requires that ',
+              'mcmc_analysis_tools_[rstan/other].R from ',
+              'https://github.com/betanalpha/mcmc_diagnostics ',
+              'is available.'))
+}
 
 ################################################################################
 # Utility Functions
@@ -313,12 +313,15 @@ plot_hist_quantiles <- function(samples, val_name_prefix,
                                 bin_min=NULL, bin_max=NULL, bin_delta=NULL,
                                 baseline_values=NULL, baseline_col="black",
                                 xlab="", display_ylim=NULL, main="") {
+
   # Construct relevant variable names and format corresponding values.
   # Order of the variables does not affect the shape of the histogram.
   names <- grep(paste0('^', val_name_prefix, '\\['),
                 names(samples), value=TRUE)
-  collapsed_values <- c(sapply(names, function(name) c(t(samples[[name]]),
-                                                       recursive=TRUE)))
+  # collapsed_values <- c(sapply(names, function(name) c(t(samples[[name]]),
+  #                                                      recursive=TRUE)))
+  samples_env <- list2env(samples, hash=TRUE, parent=emptyenv())
+  collapsed_values <- c(sapply(names, function(name) c(t(samples_env[[name]]), recursive=TRUE)))
 
   # Construct binning configuration
   if (is.null(baseline_values))
